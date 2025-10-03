@@ -2,6 +2,7 @@ import re
 from pydantic import BaseModel, Field, field_validator, model_validator
 from datetime import datetime
 
+
 class CallCreateSchema(BaseModel):
     caller: str = Field(description="Номер телефона звонящего в международном формате, начинающийся с '+'")
     receiver: str = Field(description="Номер телефона принимающего в международном формате, начинающийся с '+'")
@@ -23,3 +24,22 @@ class CallCreateSchema(BaseModel):
             raise ValueError("Дата звонка не может быть в будущем'")
 
         return self
+
+
+class RecordingCreateSchema(BaseModel):
+    call_id: int = Field(description="ID звонка")
+    audio_file: bytes = Field(description="Аудиофайл в формате mp3 или wav, не более 50MB")
+
+
+class RecordingResponseSchema(BaseModel):
+    file_name: str
+    duration: int
+    transcription: str
+
+
+class CallResponseSchema(BaseModel):
+    id: int
+    caller: str
+    receiver: str
+    started_at: datetime
+    recording: dict[RecordingResponseSchema]
