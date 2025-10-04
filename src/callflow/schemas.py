@@ -11,8 +11,12 @@ class CallCreateSchema(BaseModel):
     @field_validator("caller", "receiver")
     @classmethod
     def validate_phone_number(cls, value: str) -> str:
-        if not re.match(r'^\+\d{5,15}$', value):
-            raise ValueError("Номер телефона должен начинаться с '+' и содержать от 5 до 15 цифр")
+        pattern = r'^\+\d{1,3}\d{5,14}$'
+        if not re.match(pattern, value):
+            raise ValueError(
+                "Номер должен быть в формате: +[код страны][номер], "
+                "например: +79991234567"
+            )
         return value
 
     @model_validator(mode="after")
@@ -24,6 +28,10 @@ class CallCreateSchema(BaseModel):
             raise ValueError("Дата звонка не может быть в будущем'")
 
         return self
+
+
+class CallIDResponse(BaseModel):
+    id: int = Field(description="ID звонка")
 
 
 class RecordingCreateSchema(BaseModel):
@@ -42,4 +50,4 @@ class CallResponseSchema(BaseModel):
     caller: str
     receiver: str
     started_at: datetime
-    recording: dict[RecordingResponseSchema]
+    recording: RecordingResponseSchema | None = None
