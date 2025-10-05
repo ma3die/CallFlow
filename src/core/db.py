@@ -18,10 +18,4 @@ class PostgresSettings(BaseSettings):
                 f"{self.POSTGRES_HOST}:{self.POSTGRES_PORT}/{self.POSTGRES_DB}")
 
 
-    def get_kwargs(self, sync: bool = False) -> dict:
-        kwargs = {'db': self.POSTGRES_DB, 'url': self.get_db_url()}
-        kwargs['driver'] = self.sync_driver if sync else self.async_driver
-        return kwargs
-
-
 postgres_settings = PostgresSettings()

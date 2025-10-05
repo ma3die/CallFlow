@@ -1,28 +1,8 @@
 from functools import wraps
 from typing import AsyncGenerator
 from sqlalchemy.ext.asyncio import AsyncSession
+
 from src.db.engine import async_session_maker
-
-
-def connection(method):
-    """
-    Декоратор для управления сессиями БД (автоматический commit/rollback)
-    """
-
-    @wraps(method)
-    async def wrapper(*args, **kwargs):
-        async with async_session_maker() as session:
-            try:
-                result = await method(*args, session=session, **kwargs)
-                await session.commit()
-                return result
-            except Exception as e:
-                await session.rollback()
-                raise
-            finally:
-                await session.close()
-
-    return wrapper
 
 
 async def get_session_with_commit() -> AsyncGenerator[AsyncSession, None]:

@@ -2,18 +2,15 @@ from contextlib import asynccontextmanager
 from typing import Any, AsyncGenerator, Callable
 from fastapi import FastAPI
 from pydantic_settings import BaseSettings
-from src.core.settings import HOST, PORT, APP_PATH
 from loguru import logger
-from onstartup import create_tables
+
+from src.core.settings import HOST, PORT, APP_PATH
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[Any, Any]:
     logger.info("Connect APP")
-    # await create_tables()
     await app.onstartup()
-    # async with engine.begin() as conn:
-    #     await conn.run_sync(Base.metadata.create_all)
     yield
     logger.info("Disconnect APP")
 

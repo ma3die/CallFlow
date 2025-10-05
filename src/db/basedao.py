@@ -3,10 +3,11 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.exc import SQLAlchemyError
 from loguru import logger
+
 from src.db.database import Base
 
-
 T = TypeVar("T", bound=Base)
+
 
 class BaseDAO(Generic[T]):
     model: Type[T] = None
@@ -15,7 +16,6 @@ class BaseDAO(Generic[T]):
         self._session = session
         if self.model is None:
             raise ValueError("Модель должна быть указана в дочернем классе")
-
 
     async def add_one(self, **values: dict) -> T:
         """
@@ -33,7 +33,6 @@ class BaseDAO(Generic[T]):
         except SQLAlchemyError as e:
             logger.error(f"{self.model.__name__} -> Ошибка при добавлении: {e}")
             raise
-
 
     async def find_one(self, **filters) -> T:
         """
