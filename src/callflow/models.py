@@ -24,7 +24,7 @@ class Call(Base):
 class CallRecording(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     call_id: Mapped[int] = mapped_column(ForeignKey('calls.id', ondelete="CASCADE"), unique=True)
-    file_path: Mapped[str] = mapped_column(String(500))
+    file_path: Mapped[str] = mapped_column(String(500), nullable=True)
     file_name: Mapped[str] = mapped_column(String(255))
     duration: Mapped[int | None] = mapped_column(Integer, nullable=True)
     transcription: Mapped[str | None] = mapped_column(Text, nullable=True)

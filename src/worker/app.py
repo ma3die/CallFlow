@@ -14,4 +14,4 @@ celery_app.conf.update(
     task_time_limit=30 * 60,  # 30 minutes
 )
 
-celery_app.autodiscover_tasks()
+celery_app.autodiscover_tasks(["src.worker.tasks"])

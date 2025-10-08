@@ -1,0 +1,68 @@
+version: '3.3'
+
+services:
+  callflow_db:
+    image: postgres:16.1
+    restart: always
+    hostname: callflow_db
+    container_name: callflow_db
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    env_file: ./.env
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  callflow:
+    build: .
+    restart: always
+    hostname: callflow_app
+    container_name: callflow_app
+    volumes:
+      - ./uploads:/app/uploads
+      - ./.env:/app/.env
+    ports:
+      - "6969:6969"
+    env_file: ./.env
+    depends_on:
+      - callflow_db
+    command: python main.py
+
+  callflow_redis:
+    image: redis:7.2.3
+    restart: always
+    hostname: callflow_redis
+    container_name: callflow_redis
+    volumes:
+      - redis_volume:/data
+    ports:
+      - "6379:6379"
+    env_file: ./.env
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+
+
+  celery:
+    build: .
+    restart: always
+    hostname: callflow_celery
+    container_name: callflow_celery
+    depends_on:
+      - callflow_db
+      - callflow_redis
+    volumes:
+      - ./uploads:/app/uploads
+      - ./.env:/app/.env
+    command: celery -A src.worker.app.celery_app worker --loglevel=info
+
+volumes:
+  postgres_data:
+  redis_volume:

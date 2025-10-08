@@ -1,24 +1,28 @@
 from pathlib import Path
 from celery import current_task
-from pydub import AudioSegment
+import librosa
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
+from loguru import logger
 
 from src.worker.app import celery_app
 from src.callflow.models import CallRecording, Call
 from src.callflow.enums import CallStatus
 from src.core.db import postgres_settings
+from src.core.settings import UPLOAD_DIR
 
 DATABASE_URL = postgres_settings.get_db_url()
+SYNC_DATABASE_URL = DATABASE_URL.replace("+asyncpg", "")
 
-engine = create_engine(DATABASE_URL.replace('+asyncpg', ''))
+engine = create_engine(SYNC_DATABASE_URL)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 
-@celery_app.task(bind=True, name="process_recording")
+@celery_app.task(bind=True, )
 def process_recording_task(self, recording_id: int):
     """Фоновая задача обработки аудиозаписи"""
     session = SessionLocal()
+    logger.info(f"Таска запустилась")
 
     try:
         recording = session.get(CallRecording, recording_id)
@@ -27,10 +31,10 @@ def process_recording_task(self, recording_id: int):
 
         current_task.update_state(
             state="PROGRESS",
-            meta={"curren": 0, "total": 100, "status": "Обработка началась"}
+            meta={"current": 0, "total": 100, "status": "Обработка началась"}
         )
-
-        file_path = Path(recording.file_path)
+        upload_dir = Path(UPLOAD_DIR)
+        file_path = Path(str(recording.file_path))
 
         if not file_path.exists():
             raise FileNotFoundError(f"Аудиофайл не найден: {file_path}")
@@ -40,15 +44,19 @@ def process_recording_task(self, recording_id: int):
             meta={"current": 30, "total": 100, "status": "Анализ аудиофайла"}
         )
 
-        audio = AudioSegment.from_file(str(file_path))
-        duration = len(audio) // 1000  # конвертируем в секунды
+        audio_data, sample_rate = librosa.load(file_path, sr=None)
+        logger.info(f"audio_data={audio_data}, sample_rate={sample_rate}")
+        duration = int(len(audio_data) / sample_rate)
+        logger.info(f"duration={duration}")
 
         current_task.update_state(
             state="PROGRESS",
             meta={"current": 70, "total": 100, "status": "Создание транскрипции"}
         )
 
-        transcription = _generate_pseudo_transcription(audio, duration)
+        transcription = _generate_pseudo_transcription(duration)
+
+        logger.info(f"duration={duration}, transcription= {transcription}")
 
         recording.duration = duration
         recording.transcription = transcription
@@ -72,6 +80,7 @@ def process_recording_task(self, recording_id: int):
         }
 
     except Exception as e:
+        logger.info(f"Какая-то херня {e}")
         session.rollback()
 
         if "recording" in locals() and recording:
@@ -87,9 +96,9 @@ def process_recording_task(self, recording_id: int):
         session.close()
 
 
-def _generate_pseudo_transcription(audio: AudioSegment, duration: int) -> str:
+def _generate_pseudo_transcription(duration: int) -> str:
     """Генерация псевдотранскрипции (заглушка)"""
-    sample_duration = min(20000, duration * 1000)
+    # sample_duration = min(20000, duration * 1000)
 
     speakers = ["Абонент 1", "Абонент 2"]
     phrases = [
@@ -102,13 +111,14 @@ def _generate_pseudo_transcription(audio: AudioSegment, duration: int) -> str:
     ]
 
     transcription_parts = []
-    time_per_phrase = sample_duration / len(phrases)
+    time_per_phrase = duration / len(phrases)
 
     for i, phrase in enumerate(phrases):
         speaker = speakers[i % 2]
-        start_time = i * time_per_phrase / 1000  # в секундах
+        start_time = i * time_per_phrase
+        end_time = (i + 1) * time_per_phrase
         transcription_parts.append(
-            f"[{start_time:.1f}s] {speaker}: {phrase}"
+            f"[{start_time:.1f}-{end_time:.1f}s] {speaker}: {phrase}"
         )
 
     transcription = "\n".join(transcription_parts)

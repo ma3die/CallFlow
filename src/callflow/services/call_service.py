@@ -1,12 +1,12 @@
-from typing import Optional
+import re
+from typing import Optional, List
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
 from loguru import logger
 
 from src.callflow.dao import CallDAO
-from src.callflow.models import Call, CallRecording
+from src.callflow.models import Call
 from src.callflow.enums import CallStatus
-from src.callflow.schemas import CallCreateSchema
+from src.callflow.schemas import CallCreateSchema, CallResponseSchema
 
 
 class CallService:
@@ -28,22 +28,14 @@ class CallService:
 
     async def get_call_with_recording(self, call_id: int) -> Optional[Call]:
         """Получение звонка с информацией о записи"""
-        logger.info(f"Получение звонка с ID: {call_id}")
 
-        query = (
-            select(Call)
-            .outerjoin(CallRecording)
-            .where(Call.id == call_id)
-        )
-
-        result = await self._session.execute(query)
-        call = result.scalar_one_or_none()
-
+        call = await self.call_dao.find_call_with_recording(call_id=call_id)
         if not call:
             logger.warning(f"Звонок с ID {call_id} не найден")
             return None
 
-        # logger.info(f"Звонок {call_id} найден с записью: {bool(call.callrecording)}")
+        logger.info(f"Звонок {call_id} найден с записью: {bool(call.callrecording)}")
+
         return call
 
     async def update_call_status(self, call_id: int, status: CallStatus) -> None:
@@ -55,3 +47,24 @@ class CallService:
             call.status = status
             await self._session.flush()
             logger.info(f"Статус звонка {call_id} обновлен на {status}")
+
+    async def search_calls_by_phone(self, phone_number: str) -> List[CallResponseSchema]:
+        """Поиск звонков по номеру телефона"""
+        logger.info(f"Поиск звонков для номера: {phone_number}")
+
+        pattern = r'^\+\d{1,3}\d{5,14}$'
+        if not re.match(pattern, phone_number):
+            raise ValueError(
+                "Номер должен быть в формате: +[код страны][номер], "
+                "например: +79991234567"
+            )
+
+        calls = await self.call_dao.search_by_phone_number(phone_number)
+
+        call_schemas = []
+        for call in calls:
+            call_schema = CallResponseSchema.model_validate(call)
+            call_schemas.append(call_schema)
+
+        logger.info(f"Найдено звонков: {len(call_schemas)}")
+        return call_schemas

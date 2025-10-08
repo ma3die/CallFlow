@@ -1,7 +1,7 @@
 import re
 from pydantic import BaseModel, Field, field_validator, model_validator
 from datetime import datetime
-from typing import Optional
+from typing import Optional, List
 
 
 class CallCreateSchema(BaseModel):
@@ -48,7 +48,6 @@ class RecordingResponseSchema(BaseModel):
     file_name: str = Field(..., description="Имя файла записи")
     duration: Optional[int] = Field(None, description="Длительность записи в секундах")
     transcription: Optional[str] = Field(None, description="Транскрипция разговора")
-    processing_status: str = Field(..., description="Статус обработки")
 
     class Config:
         from_attributes = True
@@ -64,7 +63,8 @@ class CallResponseSchema(BaseModel):
     created_at: datetime = Field(..., description="Время создания записи")
     recording: Optional[RecordingResponseSchema] = Field(
         None,
-        description="Информация о записи разговора"
+        description="Информация о записи разговора",
+        alias="callrecording"  # Указываем алиас для SQLAlchemy поля
     )
 
     class Config:
@@ -77,3 +77,12 @@ class RecordingUploadResponse(BaseModel):
     call_id: int = Field(..., description="ID звонка")
     file_name: str = Field(..., description="Имя загруженного файла")
     processing_status: str = Field(..., description="Статус обработки")
+
+
+class CallListResponseSchema(BaseModel):
+    """Схема ответа со списком звонков"""
+    calls: List[CallResponseSchema] = Field(..., description="Список найденных звонков")
+    total: int = Field(..., description="Общее количество найденных звонков")
+
+    class Config:
+        from_attributes = True
